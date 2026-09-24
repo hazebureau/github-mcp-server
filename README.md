@@ -1403,6 +1403,15 @@ The following sets of tools are available:
   - `repo`: Repository name (string, required)
   - `sha`: Accepts optional commit SHA. If specified, it will be used instead of ref (string, optional)
 
+- **get_file_text** - Get a UTF-8 text file as MCP text content
+  - **OAuth Challenge Scopes**: `repo`
+  - `owner`: Repository owner (username or organization) (string, required)
+  - `path`: Path to a regular text file (string, required)
+  - `ref`: Optional git ref such as `refs/heads/main` or `refs/tags/v1.0` (string, optional)
+  - `repo`: Repository name (string, required)
+  - `sha`: Optional commit SHA; takes precedence over ref (string, optional)
+  - Binary content, invalid UTF-8, and files 1 MiB or larger are rejected.
+
 - **get_latest_release** - Get latest release
   - **OAuth Challenge Scopes**: `repo`
   - `owner`: Repository owner (string, required)

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/ifc"
@@ -1193,6 +1194,132 @@ func GetFileContents(t translations.TranslationHelperFunc) inventory.ServerTool 
 			return utils.NewToolResultError("failed to get file contents"), nil, nil
 		},
 	)
+}
+
+const maxFileTextBytes = 1 << 20
+
+// GetFileText creates a tool that returns a regular UTF-8 text file directly
+// as MCP TextContent. get_file_contents remains the resource-oriented tool.
+func GetFileText(t translations.TranslationHelperFunc) inventory.ServerTool {
+	return NewTool(
+		ToolsetMetadataRepos,
+		mcp.Tool{
+			Name:        "get_file_text",
+			Description: t("TOOL_GET_FILE_TEXT_DESCRIPTION", "Get a UTF-8 text file from a GitHub repository as MCP text content. Binary, invalid UTF-8, and files 1 MiB or larger are rejected."),
+			Annotations: &mcp.ToolAnnotations{
+				Title:        t("TOOL_GET_FILE_TEXT_USER_TITLE", "Get text file contents"),
+				ReadOnlyHint: true,
+			},
+			InputSchema: &jsonschema.Schema{
+				Type: "object",
+				Properties: map[string]*jsonschema.Schema{
+					"owner": {Type: "string", Description: "Repository owner (username or organization)"},
+					"repo":  {Type: "string", Description: "Repository name"},
+					"path":  {Type: "string", Description: "Path to a regular text file"},
+					"ref":   {Type: "string", Description: "Optional git ref such as refs/heads/main or refs/tags/v1.0"},
+					"sha":   {Type: "string", Description: "Optional commit SHA; takes precedence over ref"},
+				},
+				Required: []string{"owner", "repo", "path"},
+			},
+		},
+		scopes.PublicRead(scopes.Repo),
+		func(ctx context.Context, deps ToolDependencies, _ *mcp.CallToolRequest, args map[string]any) (*mcp.CallToolResult, any, error) {
+			owner, err := RequiredParam[string](args, "owner")
+			if err != nil {
+				return utils.NewToolResultError(err.Error()), nil, nil
+			}
+			repo, err := RequiredParam[string](args, "repo")
+			if err != nil {
+				return utils.NewToolResultError(err.Error()), nil, nil
+			}
+			path, err := RequiredParam[string](args, "path")
+			if err != nil {
+				return utils.NewToolResultError(err.Error()), nil, nil
+			}
+			path = strings.TrimPrefix(path, "/")
+			if path == "" {
+				return utils.NewToolResultError("path must identify a file"), nil, nil
+			}
+
+			ref, err := OptionalParam[string](args, "ref")
+			if err != nil {
+				return utils.NewToolResultError(err.Error()), nil, nil
+			}
+			sha, err := OptionalParam[string](args, "sha")
+			if err != nil {
+				return utils.NewToolResultError(err.Error()), nil, nil
+			}
+
+			client, err := deps.GetClient(ctx)
+			if err != nil {
+				return utils.NewToolResultError("failed to get GitHub client"), nil, nil
+			}
+			attachIFC := newRepoVisibilityIFCLabeler(ctx, deps, client, owner, repo, ifc.LabelGetFileContents)
+
+			rawOpts, _, err := resolveGitReference(ctx, client, owner, repo, ref, sha)
+			if err != nil {
+				return utils.NewToolResultError(fmt.Sprintf("failed to resolve git reference: %s", err)), nil, nil
+			}
+			if rawOpts.SHA != "" {
+				ref = rawOpts.SHA
+			}
+
+			fileContent, dirContent, respContents, err := client.Repositories.GetContents(ctx, owner, repo, path, &github.RepositoryContentGetOptions{Ref: ref})
+			if respContents != nil && respContents.Body != nil {
+				defer func() { _ = respContents.Body.Close() }()
+			}
+			if err != nil {
+				return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to get text file contents", respContents, err), nil, nil
+			}
+			if fileContent == nil || dirContent != nil {
+				return utils.NewToolResultError("path must identify a regular text file"), nil, nil
+			}
+			if fileContent.GetType() != "file" || fileContent.GetSubmoduleGitURL() != "" {
+				return utils.NewToolResultError("only regular files are supported"), nil, nil
+			}
+
+			// Check GitHub metadata and the encoded payload before decoding so an
+			// unexpectedly large response is never expanded into an unbounded string.
+			const maxEncodedContentBytes = ((maxFileTextBytes + 2) / 3 * 4) + 4096
+			if fileContent.GetSize() >= maxFileTextBytes ||
+				(fileContent.Content != nil && len(*fileContent.Content) > maxEncodedContentBytes) {
+				return utils.NewToolResultError("text file exceeds the 1 MiB size limit"), nil, nil
+			}
+
+			read, respInspect, err := inspectRepositoryFile(ctx, client, owner, repo, ref, path, fileContent)
+			if err != nil {
+				if respInspect != nil {
+					return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to inspect text file", respInspect, err), nil, nil
+				}
+				return utils.NewToolResultError(fmt.Sprintf("failed to inspect text file: %s", err)), nil, nil
+			}
+			if !read.ContentAvailable || (read.Metadata != nil && read.Metadata.Type != "") {
+				return utils.NewToolResultError("only regular files are supported"), nil, nil
+			}
+			if len(read.Content) > maxFileTextBytes {
+				return utils.NewToolResultError("text file exceeds the 1 MiB size limit"), nil, nil
+			}
+			if !utf8.Valid(read.Content) {
+				return utils.NewToolResultError("file content is not valid UTF-8 text"), nil, nil
+			}
+			if len(read.Content) > 0 {
+				contentType := http.DetectContentType(read.Content)
+				if !isTextContentType(contentType) {
+					return utils.NewToolResultError("binary file content is not supported"), nil, nil
+				}
+			}
+
+			return attachIFC(utils.NewToolResultText(string(read.Content))), nil, nil
+		},
+	)
+}
+
+func isTextContentType(contentType string) bool {
+	return strings.HasPrefix(contentType, "text/") ||
+		contentType == "application/json" ||
+		contentType == "application/xml" ||
+		strings.HasSuffix(contentType, "+json") ||
+		strings.HasSuffix(contentType, "+xml")
 }
 
 // recordDirContentsFieldsUsage emits fields telemetry for a get_file_contents

@@ -1,0 +1,39 @@
+{
+  "annotations": {
+    "idempotentHint": false,
+    "readOnlyHint": true,
+    "title": "Get text file contents"
+  },
+  "description": "Get a UTF-8 text file from a GitHub repository as MCP text content. Binary, invalid UTF-8, and files 1 MiB or larger are rejected.",
+  "inputSchema": {
+    "properties": {
+      "owner": {
+        "description": "Repository owner (username or organization)",
+        "type": "string"
+      },
+      "path": {
+        "description": "Path to a regular text file",
+        "type": "string"
+      },
+      "ref": {
+        "description": "Optional git ref such as refs/heads/main or refs/tags/v1.0",
+        "type": "string"
+      },
+      "repo": {
+        "description": "Repository name",
+        "type": "string"
+      },
+      "sha": {
+        "description": "Optional commit SHA; takes precedence over ref",
+        "type": "string"
+      }
+    },
+    "required": [
+      "owner",
+      "repo",
+      "path"
+    ],
+    "type": "object"
+  },
+  "name": "get_file_text"
+}
