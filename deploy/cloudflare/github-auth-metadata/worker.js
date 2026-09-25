@@ -1,7 +1,5 @@
-const AUTHORIZATION_SERVER = "https://github-auth.brumelight.com";
+const AUTHORIZATION_SERVER = "https://github.com/login/oauth";
 const RESOURCE = "https://github-auth.brumelight.com/mcp";
-const GITHUB_AUTHORIZATION_ENDPOINT = "https://github.com/login/oauth/authorize";
-const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 
 const RESOURCE_METADATA = {
 	resource: RESOURCE,
@@ -23,17 +21,6 @@ const RESOURCE_METADATA = {
 };
 
 const RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource/mcp";
-const AUTHORIZATION_METADATA_PATH = "/.well-known/oauth-authorization-server";
-
-const AUTHORIZATION_METADATA = {
-	issuer: AUTHORIZATION_SERVER,
-	authorization_endpoint: GITHUB_AUTHORIZATION_ENDPOINT,
-	token_endpoint: GITHUB_TOKEN_ENDPOINT,
-	token_endpoint_auth_methods_supported: ["client_secret_post"],
-	response_types_supported: ["code"],
-	grant_types_supported: ["authorization_code"],
-	code_challenge_methods_supported: ["S256"],
-};
 
 function corsHeaders() {
 	return {
@@ -47,11 +34,7 @@ function corsHeaders() {
 export default {
 	fetch(request) {
 		const url = new URL(request.url);
-		const metadata = url.pathname === RESOURCE_METADATA_PATH
-			? RESOURCE_METADATA
-			: url.pathname === AUTHORIZATION_METADATA_PATH
-				? AUTHORIZATION_METADATA
-				: null;
+		const metadata = url.pathname === RESOURCE_METADATA_PATH ? RESOURCE_METADATA : null;
 		if (metadata === null) {
 			return new Response("Not found", {
 				status: 404,
@@ -81,7 +64,7 @@ export default {
 			status: 200,
 			headers: {
 				...corsHeaders(),
-				"Cache-Control": "public, max-age=300",
+				"Cache-Control": "no-store",
 				"Content-Type": "application/json; charset=utf-8",
 			},
 		});
