@@ -1,9 +1,9 @@
 # Test-only GitHub OAuth metadata adapter
 
-This isolated Worker serves a deliberately small OAuth authorization-server
-metadata document at `/.well-known/oauth-authorization-server`. It advertises
-GitHub's authorization and token endpoints and the PKCE `S256` method, using
-the Worker URL as a test issuer.
+This isolated Worker serves a deliberately small metadata document at
+`/.well-known/oauth-authorization-server` and `/.well-known/openid-configuration`.
+It advertises GitHub's authorization and token endpoints and the PKCE `S256`
+method, using the Worker URL as a test issuer.
 
 The test issuer differs from GitHub's actual issuer. Use this Worker only to
 isolate ChatGPT's connector-creation metadata check. Do not complete an OAuth

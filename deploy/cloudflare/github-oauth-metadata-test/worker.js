@@ -1,5 +1,8 @@
 const ISSUER = "https://github-oauth-metadata-test.brumelight.workers.dev";
-const DISCOVERY_PATH = "/.well-known/oauth-authorization-server";
+const DISCOVERY_PATHS = new Set([
+	"/.well-known/oauth-authorization-server",
+	"/.well-known/openid-configuration",
+]);
 
 const METADATA = {
 	issuer: ISSUER,
@@ -23,7 +26,7 @@ function headers() {
 export default {
 	fetch(request) {
 		const url = new URL(request.url);
-		if (url.pathname !== DISCOVERY_PATH) {
+		if (!DISCOVERY_PATHS.has(url.pathname)) {
 			return new Response("Not found", {
 				status: 404,
 				headers: { "Cache-Control": "no-store" },
