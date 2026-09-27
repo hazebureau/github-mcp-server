@@ -35,10 +35,7 @@ const AUTHORIZATION_SERVER_METADATA = {
 
 const RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource/mcp";
 const AUTHORIZATION_ENDPOINT_PATH = "/login/oauth/authorize";
-const AUTHORIZATION_SERVER_METADATA_PATHS = new Set([
-	"/.well-known/oauth-authorization-server",
-	"/.well-known/openid-configuration",
-]);
+const AUTHORIZATION_SERVER_METADATA_PATH = "/.well-known/oauth-authorization-server";
 
 function corsHeaders() {
 	return {
@@ -79,7 +76,7 @@ export default {
 		const metadata =
 			url.pathname === RESOURCE_METADATA_PATH
 				? RESOURCE_METADATA
-				: AUTHORIZATION_SERVER_METADATA_PATHS.has(url.pathname)
+				: url.pathname === AUTHORIZATION_SERVER_METADATA_PATH
 					? AUTHORIZATION_SERVER_METADATA
 					: null;
 		if (metadata === null) {

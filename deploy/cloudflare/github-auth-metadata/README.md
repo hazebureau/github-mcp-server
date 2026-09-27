@@ -10,10 +10,11 @@ redirect alias on this host, and the token endpoint remains GitHub's
 OAuth discovery.
 
 The Worker serves protected-resource metadata at
-`/.well-known/oauth-protected-resource/mcp`, RFC 8414 metadata at
-`/.well-known/oauth-authorization-server`, and OIDC discovery metadata at
-`/.well-known/openid-configuration`. The latter two return the same issuer and
-endpoints. The fixed `/login/oauth/authorize` alias redirects to GitHub's
+`/.well-known/oauth-protected-resource/mcp` and RFC 8414 metadata at
+`/.well-known/oauth-authorization-server`. It returns `404` for
+`/.well-known/openid-configuration` because GitHub OAuth Apps are not an OpenID
+Connect provider and this Worker does not issue ID tokens. The fixed
+`/login/oauth/authorize` alias redirects to GitHub's
 `https://github.com/login/oauth/authorize`, preserving the query string. GitHub
 returns the authorization code to the registered ChatGPT `redirect_uri`; token
 requests go directly to GitHub. This Worker does not receive OAuth codes,
