@@ -22,8 +22,9 @@ access tokens, or client secrets.
 Deploy this directory as a Worker and bind the custom domain
 `github-auth.brumelight.com`. The public handler serves only the three
 metadata paths and the authorization alias; other paths return `404`.
-The Worker logs request methods and paths for diagnosis; it does not log query
-strings, headers, or request bodies.
+The Worker's application log records request methods and paths only. Cloudflare's
+Events view also displays platform invocation URLs, which may include query
+strings. The application logger does not write request headers or bodies.
 
 The parallel TARTAROS MCP uses this host as its resource base so its
 `WWW-Authenticate` challenge resolves to this Worker. Its resource metadata
