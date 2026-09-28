@@ -3,6 +3,7 @@
 package oauth
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -18,6 +19,9 @@ import (
 const (
 	// OAuthProtectedResourcePrefix is the well-known path prefix for OAuth protected resource metadata.
 	OAuthProtectedResourcePrefix = "/.well-known/oauth-protected-resource"
+	// OAuthAuthorizationServerMetadataPath is the RFC 8414 metadata path served
+	// when an authorization-server metadata document is explicitly configured.
+	OAuthAuthorizationServerMetadataPath = "/.well-known/oauth-authorization-server"
 )
 
 // SupportedScopes lists every OAuth scope that an MCP tool may require.
@@ -51,6 +55,11 @@ type Config struct {
 	// clients. When BaseURL is set, it always takes precedence and these
 	// headers are unused.
 	TrustProxyHeaders bool
+
+	// AuthorizationServerMetadata is an optional RFC 8414 metadata document to
+	// serve from this origin. The HTTP server remains a protected resource; this
+	// endpoint is only a discovery alias for an externally operated OAuth server.
+	AuthorizationServerMetadata json.RawMessage
 }
 
 // AuthHandler handles OAuth-related HTTP endpoints.
@@ -63,6 +72,21 @@ type AuthHandler struct {
 func NewAuthHandler(cfg *Config, apiHost utils.APIHostResolver) (*AuthHandler, error) {
 	if cfg == nil {
 		cfg = &Config{}
+	}
+	if len(cfg.AuthorizationServerMetadata) > 0 {
+		var metadata map[string]json.RawMessage
+		if err := json.Unmarshal(cfg.AuthorizationServerMetadata, &metadata); err != nil {
+			return nil, fmt.Errorf("invalid authorization-server metadata: %w", err)
+		}
+		if metadata == nil {
+			return nil, fmt.Errorf("invalid authorization-server metadata: expected a JSON object")
+		}
+		for _, key := range []string{"issuer", "authorization_endpoint", "token_endpoint"} {
+			var value string
+			if err := json.Unmarshal(metadata[key], &value); err != nil || strings.TrimSpace(value) == "" {
+				return nil, fmt.Errorf("invalid authorization-server metadata: %s must be a non-empty string", key)
+			}
+		}
 	}
 
 	if apiHost == nil {
@@ -93,6 +117,9 @@ var routePatterns = []string{
 
 // RegisterRoutes registers the OAuth protected resource metadata routes.
 func (h *AuthHandler) RegisterRoutes(r chi.Router) {
+	if len(h.cfg.AuthorizationServerMetadata) > 0 {
+		r.Handle(OAuthAuthorizationServerMetadataPath, h.authorizationServerMetadataHandler())
+	}
 	for _, pattern := range routePatterns {
 		for _, route := range h.routesForPattern(pattern) {
 			path := OAuthProtectedResourcePrefix + route
@@ -100,6 +127,22 @@ func (h *AuthHandler) RegisterRoutes(r chi.Router) {
 		}
 	}
 	r.Handle(OAuthProtectedResourcePrefix+"/*", http.NotFoundHandler())
+}
+
+func (h *AuthHandler) authorizationServerMetadataHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodGet {
+			_, _ = w.Write(h.cfg.AuthorizationServerMetadata)
+		}
+	})
 }
 
 func (h *AuthHandler) metadataHandler() http.Handler {

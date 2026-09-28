@@ -60,6 +60,11 @@ type ServerConfig struct {
 	// natively support RFC 8414 / RFC 7591 / PKCE).
 	AuthorizationServer string
 
+	// AuthorizationServerMetadataFile is an optional RFC 8414 metadata document
+	// served from this MCP server's origin as a discovery alias for an external
+	// authorization server. The file must not contain credentials.
+	AuthorizationServerMetadataFile string
+
 	// TrustProxyHeaders indicates whether X-Forwarded-Host and X-Forwarded-Proto
 	// should be honored when constructing OAuth resource metadata URLs. Only
 	// enable this when the server is deployed behind a trusted proxy that sets
@@ -198,6 +203,13 @@ func RunHTTPServer(cfg ServerConfig) error {
 
 	// Register OAuth protected resource metadata endpoints
 	oauthCfg := newOAuthConfig(cfg)
+	if cfg.AuthorizationServerMetadataFile != "" {
+		metadata, err := os.ReadFile(cfg.AuthorizationServerMetadataFile)
+		if err != nil {
+			return fmt.Errorf("failed to read authorization-server metadata file %q: %w", cfg.AuthorizationServerMetadataFile, err)
+		}
+		oauthCfg.AuthorizationServerMetadata = metadata
+	}
 
 	serverOptions := []HandlerOption{
 		WithInventoryFactory(inventoryFactory),

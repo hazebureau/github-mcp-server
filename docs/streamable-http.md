@@ -95,6 +95,32 @@ therefore serves `/.well-known/oauth-protected-resource` but does not serve
 `/.well-known/oauth-authorization-server` unless a separately deployed authorization
 server is explicitly hosted on the same origin.
 
+For a local MCP server behind a tunnel that only forwards same-origin OAuth
+discovery, an operator can serve a static RFC 8414 metadata document from the
+MCP listener as a discovery alias for the real external authorization server:
+
+```bash
+github-mcp-server http \
+  --listen-host 127.0.0.1 \
+  --port 8082 \
+  --base-path /mcp \
+  --authorization-server http://127.0.0.1:8082 \
+  --authorization-server-metadata-file deploy/github-oauth/authorization-server-metadata.json
+```
+
+The metadata document must name the actual authorization-server issuer and its
+real authorization and token endpoints. This listener only serves discovery
+metadata; it does not handle OAuth authorization, codes, tokens, or client
+secrets. Keep the listener loopback-only and leave `--base-url` unset so the
+protected-resource metadata and `WWW-Authenticate` challenge use the same local
+origin as the configured tunnel upstream. This mode is intended for a trusted
+local tunnel client that rewrites the resource URL and proxies same-origin
+metadata discovery; it is not a public OAuth proxy. The PRM's
+`authorization_servers` value is the local discovery locator while the metadata
+document's `issuer` remains the actual GitHub issuer. This relies on
+tunnel-client's documented support for metadata issuer mismatches; clients that
+require the two identifiers to be identical should not use this alias.
+
 Clients discover authorization-server metadata from the issuer listed in
 `authorization_servers`. For the default `https://github.com/login/oauth` issuer,
 RFC 8414 path insertion produces

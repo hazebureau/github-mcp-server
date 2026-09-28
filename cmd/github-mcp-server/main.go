@@ -197,28 +197,29 @@ var (
 
 			ttl := viper.GetDuration("repo-access-cache-ttl")
 			httpConfig := ghhttp.ServerConfig{
-				Version:              version,
-				Host:                 viper.GetString("host"),
-				Port:                 viper.GetInt("port"),
-				ListenHost:           viper.GetString("listen-host"),
-				BaseURL:              viper.GetString("base-url"),
-				ResourcePath:         viper.GetString("base-path"),
-				AuthorizationServer:  viper.GetString("authorization-server"),
-				ExportTranslations:   viper.GetBool("export-translations"),
-				EnableCommandLogging: viper.GetBool("enable-command-logging"),
-				LogFilePath:          viper.GetString("log-file"),
-				ContentWindowSize:    viper.GetInt("content-window-size"),
-				LockdownMode:         viper.GetBool("lockdown-mode"),
-				RepoAccessCacheTTL:   &ttl,
-				ScopeChallenge:       viper.GetBool("scope-challenge"),
-				ReadOnly:             viper.GetBool("read-only"),
-				EnabledToolsets:      enabledToolsets,
-				EnabledTools:         enabledTools,
-				ExcludeTools:         excludeTools,
-				EnabledFeatures:      enabledFeatures,
-				InsidersMode:         viper.GetBool("insiders"),
-				TrustProxyHeaders:    viper.GetBool("trust-proxy-headers"),
-				MRTRStateKey:         os.Getenv(ghhttp.MRTRStateKeyEnv),
+				Version:                         version,
+				Host:                            viper.GetString("host"),
+				Port:                            viper.GetInt("port"),
+				ListenHost:                      viper.GetString("listen-host"),
+				BaseURL:                         viper.GetString("base-url"),
+				ResourcePath:                    viper.GetString("base-path"),
+				AuthorizationServer:             viper.GetString("authorization-server"),
+				AuthorizationServerMetadataFile: viper.GetString("authorization-server-metadata-file"),
+				ExportTranslations:              viper.GetBool("export-translations"),
+				EnableCommandLogging:            viper.GetBool("enable-command-logging"),
+				LogFilePath:                     viper.GetString("log-file"),
+				ContentWindowSize:               viper.GetInt("content-window-size"),
+				LockdownMode:                    viper.GetBool("lockdown-mode"),
+				RepoAccessCacheTTL:              &ttl,
+				ScopeChallenge:                  viper.GetBool("scope-challenge"),
+				ReadOnly:                        viper.GetBool("read-only"),
+				EnabledToolsets:                 enabledToolsets,
+				EnabledTools:                    enabledTools,
+				ExcludeTools:                    excludeTools,
+				EnabledFeatures:                 enabledFeatures,
+				InsidersMode:                    viper.GetBool("insiders"),
+				TrustProxyHeaders:               viper.GetBool("trust-proxy-headers"),
+				MRTRStateKey:                    os.Getenv(ghhttp.MRTRStateKeyEnv),
 			}
 
 			return ghhttp.RunHTTPServer(httpConfig)
@@ -266,6 +267,7 @@ func init() {
 	httpCmd.Flags().String("base-url", "", "Base URL where this server is publicly accessible (for OAuth resource metadata)")
 	httpCmd.Flags().String("base-path", "", "Externally visible base path for the HTTP server (for OAuth resource metadata)")
 	httpCmd.Flags().String("authorization-server", "", "Override the authorization server URL in OAuth resource metadata. Useful when deploying behind an OAuth proxy (e.g. for GHES). Env: GITHUB_AUTHORIZATION_SERVER")
+	httpCmd.Flags().String("authorization-server-metadata-file", "", "Serve an RFC 8414 authorization-server metadata JSON file from this origin. Env: GITHUB_AUTHORIZATION_SERVER_METADATA_FILE")
 	httpCmd.Flags().Bool("scope-challenge", false, "Enable OAuth scope challenge responses")
 	httpCmd.Flags().Bool("trust-proxy-headers", false, "Honor X-Forwarded-Host and X-Forwarded-Proto when constructing OAuth resource metadata URLs. Only enable when the server is deployed behind a trusted proxy that sets these headers. Ignored when --base-url is set.")
 
@@ -295,6 +297,7 @@ func init() {
 	_ = viper.BindPFlag("base-url", httpCmd.Flags().Lookup("base-url"))
 	_ = viper.BindPFlag("base-path", httpCmd.Flags().Lookup("base-path"))
 	_ = viper.BindPFlag("authorization-server", httpCmd.Flags().Lookup("authorization-server"))
+	_ = viper.BindPFlag("authorization-server-metadata-file", httpCmd.Flags().Lookup("authorization-server-metadata-file"))
 	_ = viper.BindPFlag("scope-challenge", httpCmd.Flags().Lookup("scope-challenge"))
 	_ = viper.BindPFlag("trust-proxy-headers", httpCmd.Flags().Lookup("trust-proxy-headers"))
 	// Add subcommands

@@ -76,6 +76,80 @@ func TestNewAuthHandler(t *testing.T) {
 	}
 }
 
+func TestAuthorizationServerMetadataRoute(t *testing.T) {
+	t.Parallel()
+
+	metadata := json.RawMessage(`{"issuer":"https://github.com/login/oauth","authorization_endpoint":"https://github.com/login/oauth/authorize","token_endpoint":"https://github.com/login/oauth/access_token","code_challenge_methods_supported":["S256"]}`)
+	handler, err := NewAuthHandler(&Config{AuthorizationServerMetadata: metadata}, nil)
+	require.NoError(t, err)
+	router := chi.NewRouter()
+	handler.RegisterRoutes(router)
+
+	t.Run("GET serves configured JSON", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, OAuthAuthorizationServerMetadataPath, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
+		assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
+		assert.JSONEq(t, string(metadata), rec.Body.String())
+	})
+
+	t.Run("HEAD serves headers without a body", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodHead, OAuthAuthorizationServerMetadataPath, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Empty(t, rec.Body.String())
+	})
+
+	t.Run("other methods are rejected", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, OAuthAuthorizationServerMetadataPath, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
+		assert.Equal(t, "GET, HEAD", rec.Header().Get("Allow"))
+	})
+}
+
+func TestAuthorizationServerMetadataRouteDisabledByDefault(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewAuthHandler(&Config{}, nil)
+	require.NoError(t, err)
+	router := chi.NewRouter()
+	handler.RegisterRoutes(router)
+
+	req := httptest.NewRequest(http.MethodGet, OAuthAuthorizationServerMetadataPath, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestNewAuthHandlerRejectsInvalidAuthorizationServerMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		metadata json.RawMessage
+	}{
+		{name: "malformed JSON", metadata: json.RawMessage(`{"issuer":`)},
+		{name: "not an object", metadata: json.RawMessage(`[]`)},
+		{name: "missing issuer", metadata: json.RawMessage(`{"authorization_endpoint":"https://example.com/authorize","token_endpoint":"https://example.com/token"}`)},
+		{name: "missing endpoint", metadata: json.RawMessage(`{"issuer":"https://example.com","authorization_endpoint":"https://example.com/authorize"}`)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewAuthHandler(&Config{AuthorizationServerMetadata: tt.metadata}, nil)
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestGetEffectiveHostAndScheme(t *testing.T) {
 	t.Parallel()
 
@@ -436,7 +510,7 @@ func TestHandleProtectedResource(t *testing.T) {
 			host:               "api.example.com",
 			method:             http.MethodGet,
 			expectedStatusCode: http.StatusOK,
-expectedScopes: []string{
+			expectedScopes: []string{
 				"repo",
 				"read:org",
 				"read:user",
