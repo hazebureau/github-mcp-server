@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $credentialPath = 'C:\ProgramData\BrumeLight\credentials\github-mcp.env'
 $credentialPrefix = 'GITHUB_PERSONAL_ACCESS_TOKEN='
-$executablePath = 'C:\Program Files\BrumeLight\GitHubMCP\v1.12.2-brumelight.68b6ceb9\github-mcp-server.exe'
+$executablePath = 'C:\Program Files\BrumeLight\GitHubMCP\v1.12.2-brumelight.3171283\github-mcp-server.exe'
 $authorizationServerMetadataPath = 'C:\ProgramData\BrumeLight\services\GitHubMCP\authorization-server-metadata.68b6ceb9.json'
 
 if (-not (Test-Path -LiteralPath $credentialPath -PathType Leaf)) {
