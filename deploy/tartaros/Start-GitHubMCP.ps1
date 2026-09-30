@@ -31,8 +31,10 @@ Remove-Variable credentialFile
     --listen-host 127.0.0.1 `
     --port 8082 `
     --toolsets=default `
-    --authorization-server http://127.0.0.1:8082 `
+    --authorization-server https://github.com/login/oauth `
+    --base-url https://git.brumelight.com `
     --base-path /mcp `
+    --trust-proxy-headers `
     --authorization-server-metadata-file $authorizationServerMetadataPath
 
 exit $LASTEXITCODE
