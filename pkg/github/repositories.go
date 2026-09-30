@@ -1,6 +1,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -1296,13 +1297,18 @@ func GetFileText(t translations.TranslationHelperFunc) inventory.ServerTool {
 			if !read.ContentAvailable || (read.Metadata != nil && read.Metadata.Type != "") {
 				return utils.NewToolResultError("only regular files are supported"), nil, nil
 			}
-			if len(read.Content) > maxFileTextBytes {
+			if len(read.Content) >= maxFileTextBytes {
 				return utils.NewToolResultError("text file exceeds the 1 MiB size limit"), nil, nil
 			}
 			if !utf8.Valid(read.Content) {
 				return utils.NewToolResultError("file content is not valid UTF-8 text"), nil, nil
 			}
 			if len(read.Content) > 0 {
+				// MIME sniffing examines only the first 512 bytes. A NUL later in
+				// the file must not turn binary content into MCP text.
+				if bytes.IndexByte(read.Content, 0) >= 0 {
+					return utils.NewToolResultError("binary file content is not supported"), nil, nil
+				}
 				contentType := http.DetectContentType(read.Content)
 				if !isTextContentType(contentType) {
 					return utils.NewToolResultError("binary file content is not supported"), nil, nil

@@ -108,6 +108,29 @@ func Test_GetFileText(t *testing.T) {
 			wantError: "binary file content",
 		},
 		{
+			name:      "binary byte after MIME sniff window is rejected",
+			content:   []byte(strings.Repeat("a", 512) + "\x00"),
+			size:      513,
+			wantError: "binary file content",
+		},
+		{
+			name:    "empty text file is accepted",
+			content: []byte{},
+			want:    "",
+		},
+		{
+			name:    "file just below size limit is accepted",
+			content: []byte(strings.Repeat("a", maxFileTextBytes-1)),
+			size:    maxFileTextBytes - 1,
+			want:    strings.Repeat("a", maxFileTextBytes-1),
+		},
+		{
+			name:      "decoded content at limit is rejected despite smaller metadata",
+			content:   []byte(strings.Repeat("a", maxFileTextBytes)),
+			size:      1,
+			wantError: "1 MiB size limit",
+		},
+		{
 			name:      "file at the size limit is rejected before decoding",
 			size:      maxFileTextBytes,
 			wantError: "1 MiB size limit",
